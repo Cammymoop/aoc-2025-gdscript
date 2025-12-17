@@ -12,6 +12,6 @@ config_version=5
 
 config/name="aoc-2025"
 config/description="Enter an interesting project description here!"
-run/main_scene="uid://b23bf1lmfj0qh"
+run/main_scene="uid://b0aiddtx3owkv"
 config/features=PackedStringArray("4.5")
 config/icon="res://icon.png"
