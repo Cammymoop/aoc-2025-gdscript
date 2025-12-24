@@ -1,6 +1,6 @@
 extends Node2D
 
-const MAX_LIGHTS: int = 12 
+var max_lights: int = 0
 
 func get_and_parse_input() -> Dictionary:
     var this_dir: String = (get_script() as GDScript).resource_path.get_base_dir()
@@ -15,6 +15,8 @@ func get_and_parse_input() -> Dictionary:
     for line in input_lines:
         var first_part: String = line.split(" ")[0].trim_prefix("[").trim_suffix("]")
         var total_lights: = len(first_part)
+        max_lights = maxi(max_lights, total_lights)
+
         var line_required: Array[int] = []
         for i in total_lights:
             if first_part[i] == "#":
@@ -82,20 +84,20 @@ func part_1(input_data: Dictionary) -> void:
     prints("Total buttons needed:", total_buttons_needed)
 
 func part_1_single(lights_required: Array[int], toggle_sets: Array[Array], line_index: int) -> int:
-    if line_index % 10 == 0:
-        prints('line %s' % line_index)
+    #if line_index % 10 == 0:
+        #prints('line %s' % line_index)
     if lights_required.size() == 0:
         return 0
     var total_buttons: int = toggle_sets.size()
     
     var light_target: Array[bool] = []
-    for i in MAX_LIGHTS:
+    for i in max_lights:
         light_target.append(i in lights_required)
 
     for buttons_used in range(1, total_buttons + 1):
         for button_set in ChoiceIterator.new(range(total_buttons), buttons_used):
             var lights: Array[bool] = []
-            lights.resize(MAX_LIGHTS)
+            lights.resize(max_lights)
             for button_i in button_set:
                 for light_i in toggle_sets[button_i]:
                     lights[light_i] = not lights[light_i]
@@ -115,7 +117,77 @@ func lights_str(lights: Array[bool]) -> String:
 
 
 func part_2(input_data: Dictionary) -> void:
-    pass
+    
+    var sortings_total: int = 0
+    var valid_sortings: PackedStringArray = []
+    for i in input_data["toggle_sets"].size():
+        var toggle_set: Array[Array] = input_data["toggle_sets"][i]
+        var valid_sortings_acc: int = 1
+        for size in range(1, max_lights):
+            var n_sized_buttons: int = 0
+            for button in toggle_set:
+                n_sized_buttons += 1 if button.size() == size else 0
+            if n_sized_buttons > 0:
+                valid_sortings_acc *= fact_recurse(n_sized_buttons)
+        sortings_total += valid_sortings_acc
+        valid_sortings.append(str(valid_sortings_acc))
+    prints("valid sortings for each line:", ':'.join(valid_sortings))
+    prints("valid sortings total:", sortings_total)
+
+    var naive_solutions: int = 0
+    var naive_total: int = 0
+    var failed_lines: Array[int] = []
+    for line_index in range(input_data["total_lines"]):
+        var result: int = naive_solve(input_data["joltage_requirements"][line_index], input_data["toggle_sets"][line_index], line_index)
+        if result == -1:
+            failed_lines.append(line_index)
+        else:
+            naive_total += result
+            naive_solutions += 1
+    
+    prints("Naive solutions:", naive_solutions, "naive total:", naive_total, "failed lines:", failed_lines.size(), "/", input_data["total_lines"])
+
+func naive_solve(joltage_reuirements: Array[int], button_sets: Array[Array], line_index: int) -> int:
+    if line_index % 10 == 0:
+        prints('line %s' % line_index)
+    var button_indexes: Array[int] = Array(range(button_sets.size()), TYPE_INT, &"", null)
+    button_indexes.sort_custom(func(a, b) -> bool: return button_sets[a].size() > button_sets[b].size())
+    var press_limit: int = joltage_reuirements.reduce(func(acc, j) -> int: return acc + j, 0)
+    
+    var decreasing_joltage: Array[int] = joltage_reuirements.duplicate()
+    
+    var can_push = func(button_index: int) -> bool:
+        for joltage_i in button_sets[button_index]:
+            if decreasing_joltage[joltage_i] < 1:
+                return false
+        return true
+    
+    var presses: int = 0
+    var iter_count: int = 0
+    for _i in press_limit:
+        var game_over: bool = true
+        for button_i in button_indexes:
+            iter_count += 1
+            if can_push.call(button_i):
+                game_over = false
+                presses += 1
+                for joltage_i in button_sets[button_i]:
+                    decreasing_joltage[joltage_i] -= 1
+                break
+        if game_over:
+            var remaining_joltage: int = decreasing_joltage.reduce(func(acc, j) -> int: return acc + j, 0)
+            if remaining_joltage == 0:
+                prints("Line %s: Used %s presses, iterations: %s" % [line_index, presses, iter_count])
+                return presses
+            else:
+                return -1
+    print_debug("I used the entire total number of presses? line %s" % line_index)
+    return -1
+
+static func fact_recurse(n: int) -> int:
+    return n * fact_recurse(n - 1) if n > 1 else 1
+        
+    
 
 class ChoiceIterator:
     var is_leaf: bool
